@@ -1,0 +1,55 @@
+name: Build TDLib (macOS & Linux)
+
+on:
+  workflow_dispatch: # 允许你点击按钮手动触发编译
+
+jobs:
+  build-macos:
+    name: Build for macOS (ARM64)
+    runs-on: macos-14  # 这是一台真实的 Apple M1/M2 机器
+    steps:
+      - name: Install dependencies
+        run: brew install gperf cmake openssl
+
+      - name: Checkout TDLib
+        run: git clone https://github.com/tdlib/td.git
+
+      - name: Compile
+        run: |
+          cd td
+          mkdir build && cd build
+          # 设置 OpenSSL 路径并指定安装目录
+          cmake -DCMAKE_BUILD_TYPE=Release \
+                -DOPENSSL_ROOT_DIR=$(brew --prefix openssl) \
+                -DCMAKE_INSTALL_PREFIX:PATH=../../tdlib_macos ..
+          cmake --build . --target install --parallel 4
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tdlib-macos-bin
+          path: tdlib_macos/
+
+  build-linux:
+    name: Build for Linux (Ubuntu)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y build-essential gperf cmake openssl libssl-dev zlib1g-dev
+
+      - name: Checkout TDLib
+        run: git clone https://github.com/tdlib/td.git
+
+      - name: Compile
+        run: |
+          cd td
+          mkdir build && cd build
+          cmake -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_INSTALL_PREFIX:PATH=../../tdlib_linux ..
+          cmake --build . --target install --parallel 4
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tdlib-linux-bin
+          path: tdlib_linux/
