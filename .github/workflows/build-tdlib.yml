@@ -1,12 +1,15 @@
-name: Build TDLib (macOS & Linux)
+# 文件路径: .github/workflows/build-tdlib.yml
+
+name: Build TDLib (macOS, Linux & Windows)
 
 on:
   workflow_dispatch: # 允许你点击按钮手动触发编译
 
 jobs:
+  # macOS 任务 (来自你的原始脚本)
   build-macos:
     name: Build for macOS (ARM64)
-    runs-on: macos-14  # 这是一台真实的 Apple M1/M2 机器
+    runs-on: macos-14
     steps:
       - name: Install dependencies
         run: brew install gperf cmake openssl
@@ -18,7 +21,6 @@ jobs:
         run: |
           cd td
           mkdir build && cd build
-          # 设置 OpenSSL 路径并指定安装目录
           cmake -DCMAKE_BUILD_TYPE=Release \
                 -DOPENSSL_ROOT_DIR=$(brew --prefix openssl) \
                 -DCMAKE_INSTALL_PREFIX:PATH=../../tdlib_macos ..
@@ -27,9 +29,10 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: tdlib-macos-bin
+          name: tdlib-macos-arm64-bin
           path: tdlib_macos/
 
+  # Linux 任务 (来自你的原始脚本)
   build-linux:
     name: Build for Linux (Ubuntu)
     runs-on: ubuntu-latest
@@ -51,5 +54,46 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: tdlib-linux-bin
+          name: tdlib-linux-amd64-bin
           path: tdlib_linux/
+
+  # --- 新增的 Windows 任务 ---
+  build-windows:
+    name: Build for Windows (x64)
+    runs-on: windows-latest
+    steps:
+      # 第一步：安装依赖。在 Windows 上，我们使用 vcpkg
+      - name: Install dependencies (vcpkg)
+        run: |
+          git clone https://github.com/microsoft/vcpkg.git
+          cd vcpkg
+          ./bootstrap-vcpkg.bat
+          # 将 vcpkg 的根目录路径存入环境变量，供后续步骤使用
+          echo "VCPKG_ROOT=$PWD" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          # 使用 vcpkg 安装 TDLib 所需的依赖
+          ./vcpkg.exe install openssl:x64-windows zlib:x64-windows gperf:x64-windows
+
+      # 第二步：检出 TDLib 源码
+      - name: Checkout TDLib
+        run: git clone https://github.com/tdlib/td.git
+
+      # 第三步：编译 TDLib
+      - name: Compile
+        shell: cmd # 切换到 cmd ahell 以确保 vcpkg 集成环境被正确加载
+        run: |
+          cd td
+          mkdir build && cd build
+          REM 调用 cmake，并使用 vcpkg 的 toolchain 文件来自动查找依赖
+          cmake -DCMAKE_BUILD_TYPE=Release ^
+                -DCMAKE_INSTALL_PREFIX:PATH=../../tdlib_windows ^
+                -DCMAKE_TOOLCHAIN_FILE=%VCPKG_ROOT%/scripts/buildsystems/vcpkg.cmake ..
+
+          REM 在 Windows 上，需要为多配置生成器（如 Visual Studio）指定配置
+          cmake --build . --target install --config Release --parallel 4
+
+      # 第四步：上传编译产物
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tdlib-windows-amd64-bin
+          path: tdlib_windows/
