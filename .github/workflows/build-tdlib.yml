@@ -1,4 +1,4 @@
-name: Build TDLib (Windows)
+name: Build TDLib (Windows) 1.8.59
 
 on:
   workflow_dispatch:
@@ -13,7 +13,7 @@ jobs:
         run: |
             git clone https://github.com/tdlib/td.git
             cd td
-            git checkout 971684a3dcc7bdf99eec024e1c4f57ae729d6d53
+            git checkout 89e7366783e13d63085878ba407da83107ccd401
 
 
       - name: Install dependencies (vcpkg)
