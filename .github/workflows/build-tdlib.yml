@@ -13,7 +13,7 @@ jobs:
         run: |
             git clone https://github.com/tdlib/td.git
             cd td
-            git checkout b28fdac251c87c7e5bec99ae58b684661af7431a
+            git checkout 971684a3dcc7bdf99eec024e1c4f57ae729d6d53
 
 
       - name: Install dependencies (vcpkg)
@@ -39,5 +39,5 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: tdlib-windows-amd64-${{ github.event.inputs.tdlib_version }}
+          name: tdlib-windows-amd64-bin
           path: tdlib_windows/
