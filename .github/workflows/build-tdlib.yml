@@ -1,12 +1,19 @@
-# 文件路径: .github/workflows/build-tdlib.yml
-
+# .github/workflows/build-tdlib.yml
 name: Build TDLib (macOS, Linux & Windows)
 
 on:
-  workflow_dispatch: # 允许你点击按钮手动触发编译
+  workflow_dispatch:
+    inputs:
+      tdlib_version:
+        description: "TDLib git tag (e.g. v1.8.5)"
+        required: true
+        default: "v1.8.5"
+
+env:
+  TDLIB_VERSION: ${{ inputs.tdlib_version }}
 
 jobs:
-  # macOS 任务 (来自你的原始脚本)
+  # ===================== macOS =====================
   build-macos:
     name: Build for macOS (ARM64)
     runs-on: macos-14
@@ -15,7 +22,10 @@ jobs:
         run: brew install gperf cmake openssl
 
       - name: Checkout TDLib
-        run: git clone https://github.com/tdlib/td.git
+        run: |
+          git clone https://github.com/tdlib/td.git
+          cd td
+          git checkout $TDLIB_VERSION
 
       - name: Compile
         run: |
@@ -29,19 +39,23 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: tdlib-macos-arm64-bin
+          name: tdlib-macos-arm64-${{ env.TDLIB_VERSION }}
           path: tdlib_macos/
 
-  # Linux 任务 (来自你的原始脚本)
+  # ===================== Linux =====================
   build-linux:
     name: Build for Linux (Ubuntu)
     runs-on: ubuntu-latest
     steps:
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y build-essential gperf cmake openssl libssl-dev zlib1g-dev
+        run: sudo apt-get update && sudo apt-get install -y \
+             build-essential gperf cmake openssl libssl-dev zlib1g-dev
 
       - name: Checkout TDLib
-        run: git clone https://github.com/tdlib/td.git
+        run: |
+          git clone https://github.com/tdlib/td.git
+          cd td
+          git checkout $TDLIB_VERSION
 
       - name: Compile
         run: |
@@ -54,46 +68,40 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: tdlib-linux-amd64-bin
+          name: tdlib-linux-amd64-${{ env.TDLIB_VERSION }}
           path: tdlib_linux/
 
-  # --- 新增的 Windows 任务 ---
+  # ===================== Windows =====================
   build-windows:
     name: Build for Windows (x64)
     runs-on: windows-latest
     steps:
-      # 第一步：安装依赖。在 Windows 上，我们使用 vcpkg
       - name: Install dependencies (vcpkg)
         run: |
           git clone https://github.com/microsoft/vcpkg.git
           cd vcpkg
-          ./bootstrap-vcpkg.bat
-          # 将 vcpkg 的根目录路径存入环境变量，供后续步骤使用
+          .\bootstrap-vcpkg.bat
           echo "VCPKG_ROOT=$PWD" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          # 使用 vcpkg 安装 TDLib 所需的依赖
-          ./vcpkg.exe install openssl:x64-windows zlib:x64-windows gperf:x64-windows
+          .\vcpkg.exe install openssl:x64-windows zlib:x64-windows gperf:x64-windows
 
-      # 第二步：检出 TDLib 源码
       - name: Checkout TDLib
-        run: git clone https://github.com/tdlib/td.git
+        run: |
+          git clone https://github.com/tdlib/td.git
+          cd td
+          git checkout $env:TDLIB_VERSION
 
-      # 第三步：编译 TDLib
       - name: Compile
-        shell: cmd # 切换到 cmd ahell 以确保 vcpkg 集成环境被正确加载
+        shell: cmd
         run: |
           cd td
           mkdir build && cd build
-          REM 调用 cmake，并使用 vcpkg 的 toolchain 文件来自动查找依赖
           cmake -DCMAKE_BUILD_TYPE=Release ^
                 -DCMAKE_INSTALL_PREFIX:PATH=../../tdlib_windows ^
-                -DCMAKE_TOOLCHAIN_FILE=%VCPKG_ROOT%/scripts/buildsystems/vcpkg.cmake ..
-
-          REM 在 Windows 上，需要为多配置生成器（如 Visual Studio）指定配置
+                -DCMAKE_TOOLCHAIN_FILE=%VCPKG_ROOT%\scripts\buildsystems\vcpkg.cmake ..
           cmake --build . --target install --config Release --parallel 4
 
-      # 第四步：上传编译产物
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: tdlib-windows-amd64-bin
+          name: tdlib-windows-amd64-${{ env.TDLIB_VERSION }}
           path: tdlib_windows/
