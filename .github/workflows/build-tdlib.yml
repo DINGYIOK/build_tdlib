@@ -13,7 +13,7 @@ jobs:
         run: |
             git clone https://github.com/tdlib/td.git
             cd td
-            git checkout 89e7366783e13d63085878ba407da83107ccd401
+            git checkout 561235e4b2dceb52110c243115d76b1a3cc4aca8
 
 
       - name: Install dependencies (vcpkg)
