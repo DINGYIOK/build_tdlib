@@ -74,7 +74,7 @@ jobs:
 
   # ================= macOS =================
   build-macos:
-    name: Build for macOS (Apple Silicon + Intel)
+    name: Build for macOS (Apple Silicon)
     runs-on: macos-latest
 
     steps:
@@ -105,23 +105,18 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_INSTALL_PREFIX=../../tdlib_macos \
             -DOPENSSL_ROOT_DIR=$(brew --prefix openssl) \
-            -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
             ..
 
       - name: Print Build Parameters
         run: |
           echo "===== macOS Build Parameters ====="
-          echo "Platform: macOS Universal"
-          echo "Architectures: arm64;x86_64"
+          echo "Platform: macOS Apple Silicon"
+          echo "Architecture: arm64"
           echo "Build Type: Release"
           echo "TDLib Commit: 49b3bcbb6bfebf2ed44dd9f25102d2e1a94a58c4"
           echo "Install Prefix: tdlib_macos"
           echo "OpenSSL Path: $(brew --prefix openssl)"
-          echo "Dependencies:"
-          echo "  - cmake"
-          echo "  - openssl"
-          echo "  - zlib"
-          echo "  - gperf"
 
       - name: Compile
         run: |
@@ -135,5 +130,5 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: tdlib-macos-universal-bin
+          name: tdlib-macos-arm64-bin
           path: tdlib_macos/
