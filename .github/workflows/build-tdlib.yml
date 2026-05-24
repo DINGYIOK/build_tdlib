@@ -1,43 +1,139 @@
-name: Build TDLib (Windows) 1.8.59
+name: Build TDLib (Windows + macOS)
 
 on:
   workflow_dispatch:
 
 jobs:
-  # ---------------- Windows ----------------
+  # ================= Windows =================
   build-windows:
     name: Build for Windows (x64)
     runs-on: windows-latest
+
     steps:
       - name: Checkout TDLib (pinned commit)
         run: |
-            git clone https://github.com/tdlib/td.git
-            cd td
-            git checkout 561235e4b2dceb52110c243115d76b1a3cc4aca8
-
+          git clone https://github.com/tdlib/td.git
+          cd td
+          git checkout 49b3bcbb6bfebf2ed44dd9f25102d2e1a94a58c4
 
       - name: Install dependencies (vcpkg)
         run: |
           git clone https://github.com/microsoft/vcpkg.git
           cd vcpkg
           ./bootstrap-vcpkg.bat
-          echo "VCPKG_ROOT=$PWD" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          ./vcpkg.exe install openssl:x64-windows zlib:x64-windows gperf:x64-windows
 
+          echo "VCPKG_ROOT=$PWD" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+          ./vcpkg.exe install `
+            openssl:x64-windows `
+            zlib:x64-windows `
+            gperf:x64-windows
+
+      - name: Configure CMake
+        shell: cmd
+        run: |
+          cd td
+          mkdir build
+          cd build
+
+          cmake ^
+            -DCMAKE_BUILD_TYPE=Release ^
+            -DCMAKE_INSTALL_PREFIX:PATH=../../tdlib_windows ^
+            -DCMAKE_TOOLCHAIN_FILE=%VCPKG_ROOT%/scripts/buildsystems/vcpkg.cmake ^
+            ..
+
+      - name: Print Build Parameters
+        shell: cmd
+        run: |
+          echo ===== Windows Build Parameters =====
+          echo Platform: Windows x64
+          echo Build Type: Release
+          echo TDLib Commit: 49b3bcbb6bfebf2ed44dd9f25102d2e1a94a58c4
+          echo Install Prefix: tdlib_windows
+          echo Toolchain: %VCPKG_ROOT%/scripts/buildsystems/vcpkg.cmake
+          echo Dependencies:
+          echo   - openssl:x64-windows
+          echo   - zlib:x64-windows
+          echo   - gperf:x64-windows
 
       - name: Compile
         shell: cmd
         run: |
-          cd td
-          mkdir build && cd build
-          cmake -DCMAKE_BUILD_TYPE=Release ^
-                -DCMAKE_INSTALL_PREFIX:PATH=../../tdlib_windows ^
-                -DCMAKE_TOOLCHAIN_FILE=%VCPKG_ROOT%/scripts/buildsystems/vcpkg.cmake ..
+          cd td\build
 
-          cmake --build . --target install --config Release --parallel 4
+          cmake --build . ^
+            --target install ^
+            --config Release ^
+            --parallel 4
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: tdlib-windows-amd64-bin
           path: tdlib_windows/
+
+  # ================= macOS =================
+  build-macos:
+    name: Build for macOS (Apple Silicon + Intel)
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout TDLib (pinned commit)
+        run: |
+          git clone https://github.com/tdlib/td.git
+          cd td
+          git checkout 49b3bcbb6bfebf2ed44dd9f25102d2e1a94a58c4
+
+      - name: Install dependencies (Homebrew)
+        run: |
+          brew update
+
+          brew install \
+            cmake \
+            openssl \
+            zlib \
+            gperf
+
+      - name: Configure CMake
+        run: |
+          cd td
+
+          mkdir build
+          cd build
+
+          cmake \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX=../../tdlib_macos \
+            -DOPENSSL_ROOT_DIR=$(brew --prefix openssl) \
+            -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
+            ..
+
+      - name: Print Build Parameters
+        run: |
+          echo "===== macOS Build Parameters ====="
+          echo "Platform: macOS Universal"
+          echo "Architectures: arm64;x86_64"
+          echo "Build Type: Release"
+          echo "TDLib Commit: 49b3bcbb6bfebf2ed44dd9f25102d2e1a94a58c4"
+          echo "Install Prefix: tdlib_macos"
+          echo "OpenSSL Path: $(brew --prefix openssl)"
+          echo "Dependencies:"
+          echo "  - cmake"
+          echo "  - openssl"
+          echo "  - zlib"
+          echo "  - gperf"
+
+      - name: Compile
+        run: |
+          cd td/build
+
+          cmake --build . \
+            --target install \
+            --config Release \
+            --parallel 4
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tdlib-macos-universal-bin
+          path: tdlib_macos/
